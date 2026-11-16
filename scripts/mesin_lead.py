@@ -132,7 +132,8 @@ def find_chat_id(env):
             "kemudian cuba lagi.")
     for cid, kind in chats.items():
         print(f"✓ Chat ID: {cid}  ({kind})")
-    print("  Letak dalam .env sebagai TELEGRAM_CHAT_ID=<nombor di atas>")
+    print("  Laptop: letak dalam .env sebagai TELEGRAM_CHAT_ID=<nombor di atas>")
+    print("  GitHub Actions: tambah secret TELEGRAM_CHAT_ID dengan nombor di atas")
 
 
 def send(token, chat, text):

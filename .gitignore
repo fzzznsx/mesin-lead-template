@@ -20,3 +20,10 @@ Thumbs.db
 
 # The engine's jobs, results, logs and downloaded Chrome
 .engine/
+
+# Mesin Lead: track tetapan, abaikan fail run harian dan token
+!mesin-lead.json
+!mesin-lead.example.json
+!leads/master.csv
+leads/run-*.csv
+.env

@@ -1,0 +1,81 @@
+# Mesin Lead di cloud: cari prospek Google Maps dan hantar ke Telegram tanpa laptop.
+#
+# - Jadual: setiap hari 9:00 pagi waktu Malaysia (01:00 UTC), niche dan bandar dari mesin-lead.json.
+#   GitHub kadang lewat beberapa minit, terutama pada waktu sibuk.
+# - Carian sekali: Actions > Mesin Lead > Run workflow (boleh dari app GitHub di telefon),
+#   isi niche, bandar dan jumlah. Kosongkan untuk guna tetapan harian.
+# - Token bot dan chat ID disimpan sebagai GitHub Secrets: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID.
+# - Lepas setiap run, leads/master.csv dan leads/state.json disimpan semula dalam repo ni,
+#   supaya prospek yang dah dihantar tak dihantar lagi. Repo ni MESTI private.
+name: Mesin Lead
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+    inputs:
+      niche:
+        description: "Niche, contoh: dental clinic (kosongkan = niche harian)"
+        required: false
+      bandar:
+        description: "Kawasan, contoh: Melaka, Malaysia (kosongkan = giliran harian)"
+        required: false
+      had:
+        description: "Berapa prospek, contoh: 20 (kosongkan = semua)"
+        required: false
+      cari_chat_id:
+        description: "Setup sahaja: tunjuk chat ID Telegram anda dalam log (hantar 'hai' ke bot dulu)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mesin-lead
+  cancel-in-progress: false
+
+jobs:
+  cari:
+    # Template awam tak jalan sendiri (tiada token); salinan anda jalan seperti biasa.
+    if: github.repository != 'faizzzazmi/mesin-lead-template'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cari chat ID Telegram
+        if: ${{ inputs.cari_chat_id }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: python scripts/mesin_lead.py --cari-chat-id
+
+      - name: Jalankan Mesin Lead
+        if: ${{ !inputs.cari_chat_id }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SCRAPER_NO_UPDATE_CHECK: "1"
+          IN_NICHE: ${{ inputs.niche }}
+          IN_BANDAR: ${{ inputs.bandar }}
+          IN_HAD: ${{ inputs.had }}
+        run: |
+          args=()
+          if [ -n "$IN_NICHE" ]; then args+=(--niche "$IN_NICHE"); fi
+          if [ -n "$IN_BANDAR" ]; then args+=(--bandar "$IN_BANDAR"); fi
+          if [ -n "$IN_HAD" ]; then args+=(--had "$IN_HAD"); fi
+          python scripts/mesin_lead.py "${args[@]}"
+
+      - name: Simpan senarai prospek
+        if: ${{ always() && !inputs.cari_chat_id }}
+        run: |
+          git config user.name "mesin-lead-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for f in leads/master.csv leads/state.json; do if [ -f "$f" ]; then git add -f "$f"; fi; done
+          if git diff --cached --quiet; then echo "Tiada perubahan"; exit 0; fi
+          git commit -m "Mesin Lead: kemas kini prospek $(date -u +%F)"
+          git push

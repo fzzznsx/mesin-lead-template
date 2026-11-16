@@ -1,0 +1,18 @@
+{
+  "niche": "pasang aircond",
+  "bandar": [
+    "Shah Alam, Selangor, Malaysia",
+    "Klang, Selangor, Malaysia",
+    "Petaling Jaya, Selangor, Malaysia",
+    "Subang Jaya, Selangor, Malaysia",
+    "Kajang, Selangor, Malaysia"
+  ],
+  "bandar_setiap_run": 1,
+  "depth": 2,
+  "kod_negara": "60",
+  "max_mesej_setiap_run": 30,
+  "tanpa_website_sahaja": false,
+  "mesti_ada_telefon": true,
+  "rating_minimum": null,
+  "semak_pixel_iklan": false
+}

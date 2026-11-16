@@ -26,8 +26,10 @@ Melaka", "nak leads pasang aircond Ipoh"), do NOT start the engine or run any sc
 3. Tell the user in Malay: the request is sent, leads arrive in their Telegram in about 1 to 2 minutes,
    and nothing more is needed. Do not open, read or summarise `leads/master.csv` or any scraped value.
 
-Changing the DAILY settings (`mesin-lead.json`: `niche`, `bandar` list, filters) is a separate ask: edit
-that file only when the user says it is for every day. The daily run happens by itself at 9am Malaysia time.
+Changing the DAILY settings (`mesin-lead.json`: `niche`, `bandar` list, filters) does not work from a
+cloud session: your commits land on a side branch, and the workflow reads `mesin-lead.json` from `main`.
+Tell the user to edit it on GitHub instead (open `mesin-lead.json`, tap the pencil icon, change it, Commit
+changes), or offer to open a pull request that they merge. The daily run happens by itself at 9am Malaysia time.
 
 ## Mesin Lead: every lead goes to Telegram
 This folder has `scripts/mesin_lead.py`, which scrapes, skips places already in `leads/master.csv`, saves

@@ -39,7 +39,7 @@ Perlukan langganan Claude (Pro atau Max). Laptop tak perlu hidup.
 
 ## Senario 1: laptop
 
-Buka folder repo ni dalam Claude Code dan ikut panduan. Semua prompt dan command ada dalam panduan Mesin Lead.
+Senario 1 guna repo asal google-maps-scraper-kit dan tiga fail pakej Mesin Lead di laptop, bukan template ni. Ikut panduan Mesin Lead.
 
 ## Tetapan (`mesin-lead.json`)
 

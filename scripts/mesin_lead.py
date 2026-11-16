@@ -14,8 +14,8 @@ Tetapan ada dalam mesin-lead.json (niche, bandar, penapis). Token bot dan chat I
 
 Cara guna:
   python3 scripts/mesin_lead.py                  # jalan biasa (untuk jadual harian)
-  python3 scripts/mesin_lead.py --dry-run        # cari dan simpan, tapi tak hantar ke Telegram
-  python3 scripts/mesin_lead.py --cari-chat-id   # cari chat ID anda (hantar "hai" ke bot dulu)
+  python3 scripts/mesin_lead.py --dry-run        # cari sahaja: tak hantar, tak tanda prospek sebagai dah dijumpai
+  python3 scripts/mesin_lead.py --cari-chat-id   # cari chat ID anda dan simpan dalam .env (hantar "hai" ke bot dulu)
   python3 scripts/mesin_lead.py --test-telegram  # hantar satu mesej ujian ke Telegram
   python3 scripts/mesin_lead.py --niche "dental clinic" --bandar "Seremban, Negeri Sembilan, Malaysia" --had 20
                                                  # carian sekali: niche dan bandar lain, tanpa ubah tetapan
@@ -57,15 +57,20 @@ def load_env():
     return env
 
 
-def load_config():
-    if not os.path.isfile(CONFIG):
+def load_config(niche=None, bandar=None):
+    """Tetapan dari mesin-lead.json. Carian sekali (--niche dan --bandar) jalan walaupun fail tu belum ada."""
+    cfg = dict(DEFAULTS)
+    if os.path.isfile(CONFIG):
+        with open(CONFIG, encoding="utf-8") as f:
+            cfg.update(json.load(f))
+    elif not (niche and bandar):
         die(f"Tiada fail tetapan {os.path.basename(CONFIG)}. Salin mesin-lead.example.json kepada mesin-lead.json "
             "dan isi niche serta bandar.")
-    with open(CONFIG, encoding="utf-8") as f:
-        cfg = {**DEFAULTS, **json.load(f)}
+    if niche:
+        cfg["niche"] = niche.strip()
     if not str(cfg["niche"]).strip():
-        die('Isi "niche" dalam mesin-lead.json, contoh "kereta sewa".')
-    if not cfg["bandar"]:
+        die('Isi "niche" dalam mesin-lead.json, contoh "pasang aircond".')
+    if not cfg["bandar"] and not bandar:
         die('Isi "bandar" dalam mesin-lead.json, contoh ["Shah Alam, Selangor, Malaysia"].')
     return cfg
 
@@ -132,8 +137,30 @@ def find_chat_id(env):
             "kemudian cuba lagi.")
     for cid, kind in chats.items():
         print(f"✓ Chat ID: {cid}  ({kind})")
-    print("  Laptop: letak dalam .env sebagai TELEGRAM_CHAT_ID=<nombor di atas>")
-    print("  GitHub Actions: tambah secret TELEGRAM_CHAT_ID dengan nombor di atas")
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print("  GitHub Actions: tambah secret TELEGRAM_CHAT_ID dengan nombor di atas")
+        return
+    private = [cid for cid, kind in chats.items() if kind == "private"]
+    if len(private) == 1:
+        save_env("TELEGRAM_CHAT_ID", str(private[0]))
+        print("✓ Chat ID disimpan dalam .env. Seterusnya: python3 scripts/mesin_lead.py --test-telegram")
+    else:
+        print("  Lebih dari satu chat. Pilih chat peribadi anda dan letak dalam .env sebagai TELEGRAM_CHAT_ID=<nombor>")
+
+
+def save_env(key, value):
+    """Tulis atau ganti satu baris dalam .env, dan kunci fail tu (hanya pemilik boleh baca)."""
+    lines = []
+    if os.path.isfile(ENV):
+        with open(ENV, encoding="utf-8") as f:
+            lines = [l for l in f.read().splitlines() if not l.strip().startswith(key + "=")]
+    lines.append(f"{key}={value}")
+    with open(ENV, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    try:
+        os.chmod(ENV, 0o600)
+    except OSError:
+        pass
 
 
 def send(token, chat, text):
@@ -259,7 +286,8 @@ def scrape(cfg, city, out):
 
 def main():
     ap = argparse.ArgumentParser(description="Mesin Lead: prospek Google Maps terus ke Telegram.")
-    ap.add_argument("--dry-run", action="store_true", help="cari dan simpan, tapi jangan hantar ke Telegram")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="cari sahaja: jangan hantar, dan jangan tanda prospek sebagai dah dijumpai")
     ap.add_argument("--cari-chat-id", action="store_true", help="tunjuk chat ID (hantar 'hai' ke bot dulu)")
     ap.add_argument("--test-telegram", action="store_true", help="hantar satu mesej ujian")
     ap.add_argument("--bandar", help="jalankan untuk bandar ini sahaja (abaikan giliran)")
@@ -291,9 +319,7 @@ def main():
         print("✓ Mesej ujian dihantar. Semak Telegram anda.")
         return
 
-    cfg = load_config()
-    if a.niche:
-        cfg["niche"] = a.niche.strip()
+    cfg = load_config(a.niche, a.bandar)
     if a.had:
         cfg["had"] = a.had
     token = chat = None
@@ -329,19 +355,21 @@ def main():
                 continue
             rows = [r for r in rows if (r.get("title") or "").strip()]
             print(f"  → {len(rows)} prospek BARU di {city.split(',')[0]}")
+            if a.dry_run:  # ujian sahaja: master.csv dan giliran bandar tak berubah
+                total_new += len(rows)
+                continue
             if rows:
                 append_master(rows, city, cfg["niche"])
             total_new += len(rows)
-            if not a.dry_run:
-                cap = int(cfg["max_mesej_setiap_run"] or 0) or len(rows)  # 0 = hantar semua
-                head = (f"🔔 <b>{len(rows)} prospek baru</b> · {esc(cfg['niche'])} · {esc(city.split(',')[0])}"
-                        if rows else f"😴 Tiada prospek baru untuk {esc(cfg['niche'])} di {esc(city.split(',')[0])} hari ni.")
-                if len(rows) > cap:
-                    head += f"\n(Hantar {cap} teratas di sini. Semua {len(rows)} ada dalam leads/master.csv)"
-                send(token, chat, head)
-                for i, r in enumerate(rows[:cap], 1):
-                    send(token, chat, lead_message(i, min(len(rows), cap), r, str(cfg["kod_negara"])))
-                    sent += 1
+            cap = int(cfg["max_mesej_setiap_run"] or 0) or len(rows)  # 0 = hantar semua
+            head = (f"🔔 <b>{len(rows)} prospek baru</b> · {esc(cfg['niche'])} · {esc(city.split(',')[0])}"
+                    if rows else f"😴 Tiada prospek baru untuk {esc(cfg['niche'])} di {esc(city.split(',')[0])} hari ni.")
+            if len(rows) > cap:
+                head += f"\n(Hantar {cap} teratas di sini. Semua {len(rows)} ada dalam leads/master.csv)"
+            send(token, chat, head)
+            for i, r in enumerate(rows[:cap], 1):
+                send(token, chat, lead_message(i, min(len(rows), cap), r, str(cfg["kod_negara"])))
+                sent += 1
             if not a.bandar:
                 state["seterusnya"] = (cities.index(city) + 1) % len(cities)
                 state["run_terakhir"] = datetime.datetime.now().isoformat(timespec="minutes")
@@ -351,8 +379,11 @@ def main():
         if started:
             engine("stop")
 
-    sent_note = f"{sent} dihantar ke Telegram" if not a.dry_run else "tidak dihantar (dry run)"
-    print(f"✓ Siap: {total_new} prospek baru, {sent_note}. Semua disimpan dalam leads/master.csv")
+    if a.dry_run:
+        print(f"✓ Siap (dry run): {total_new} prospek baru dijumpai. Tiada yang dihantar atau ditanda, "
+              "jadi run sebenar akan hantar mereka.")
+    else:
+        print(f"✓ Siap: {total_new} prospek baru, {sent} dihantar ke Telegram. Semua disimpan dalam leads/master.csv")
 
 
 if __name__ == "__main__":

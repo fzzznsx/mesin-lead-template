@@ -27,3 +27,4 @@ Thumbs.db
 !leads/master.csv
 leads/run-*.csv
 .env
+!permintaan.json

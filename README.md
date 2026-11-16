@@ -26,6 +26,17 @@ Ada dua cara guna:
 Lepas tu, mesin jalan sendiri setiap hari pukul 9 pagi waktu Malaysia. Untuk carian sekali (niche atau
 kawasan lain), isi kotak niche, kawasan dan jumlah pada **Run workflow**, termasuk dari app GitHub di telefon.
 
+## Minta leads dengan chat di app Claude
+
+Selepas setup, anda boleh minta leads dengan chat biasa, termasuk dari telefon:
+
+1. Sekali sahaja: sambungkan GitHub ke Claude (claude.ai/code, atau bahagian Code dalam app Claude) dan
+   benarkan akses ke repo Mesin Lead anda sahaja.
+2. Dalam app Claude, buka **Code**, pilih repo anda, dan taip contohnya: *Cari 5 dental clinic di Seremban*.
+3. Claude hantar permintaan ke repo, dan prospek masuk Telegram dalam lebih kurang 1 minit.
+
+Perlukan langganan Claude (Pro atau Max). Laptop tak perlu hidup.
+
 ## Senario 1: laptop
 
 Buka folder repo ni dalam Claude Code dan ikut panduan. Semua prompt dan command ada dalam panduan Mesin Lead.

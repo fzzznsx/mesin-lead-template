@@ -9,6 +9,26 @@ this machine with `python3 scripts/engine.py start` or in Docker with `docker co
 exposed as a REST API at **`http://localhost:8080`**, plus a skill that teaches you to use it. It
 scrapes **Google Maps business listings only**, not social media.
 
+## Lead requests in this repo run on GitHub Actions (read this first)
+This repo is the user's cloud Mesin Lead (made from the Mesin Lead template). When the user asks for leads ("cari 20 dental clinic di
+Melaka", "nak leads pasang aircond Ipoh"), do NOT start the engine or run any scraper here. Instead:
+
+1. Write `permintaan.json` at the repo root, exactly this shape (no other keys):
+   `{"niche": "<niche>", "bandar": "<Town, State, Malaysia>", "had": <number or null>, "diminta_pada": "<ISO date-time now>"}`
+   - `niche`: the business type in the words Google Maps uses, English when unsure ("dental clinic", "aircond service").
+   - `bandar`: one place, written in full with state and country. Several places = one request at a time:
+     push one, then the next after the user confirms or after a minute.
+   - `had`: the number the user asked for, else `null` (= every new lead).
+   - `diminta_pada`: always the current time, so every request is a change GitHub reacts to.
+2. Commit only that file ("Permintaan: <niche> di <bandar>") and push it. Any branch works: the push
+   starts the Mesin Lead workflow, which scrapes, skips leads already sent, sends the new ones to the
+   user's Telegram and saves the lead list on `main`.
+3. Tell the user in Malay: the request is sent, leads arrive in their Telegram in about 1 to 2 minutes,
+   and nothing more is needed. Do not open, read or summarise `leads/master.csv` or any scraped value.
+
+Changing the DAILY settings (`mesin-lead.json`: `niche`, `bandar` list, filters) is a separate ask: edit
+that file only when the user says it is for every day. The daily run happens by itself at 9am Malaysia time.
+
 ## Mesin Lead: every lead goes to Telegram
 This folder has `scripts/mesin_lead.py`, which scrapes, skips places already in `leads/master.csv`, saves
 the new ones there and sends each one to the user's Telegram bot (token and chat ID in `.env`). The user

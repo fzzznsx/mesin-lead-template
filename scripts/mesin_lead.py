@@ -265,7 +265,22 @@ def main():
     ap.add_argument("--bandar", help="jalankan untuk bandar ini sahaja (abaikan giliran)")
     ap.add_argument("--niche", help="cari niche ini untuk run ini sahaja (tanpa ubah mesin-lead.json)")
     ap.add_argument("--had", type=int, metavar="N", help="ambil N prospek pertama sahaja")
+    ap.add_argument("--permintaan", metavar="FAIL",
+                    help="baca niche, bandar dan had dari fail JSON (contoh permintaan.json dari Claude)")
     a = ap.parse_args()
+    if a.permintaan:
+        try:
+            with open(a.permintaan, encoding="utf-8") as f:
+                req = json.load(f)
+        except (OSError, ValueError) as e:
+            die(f"Fail permintaan tak boleh dibaca: {e}")
+        niche = str(req.get("niche") or "").strip()[:80]
+        bandar = str(req.get("bandar") or "").strip()[:120]
+        a.niche = a.niche or niche or None
+        a.bandar = a.bandar or bandar or None
+        if not a.had and str(req.get("had") or "").strip().isdigit():
+            a.had = int(str(req["had"]).strip())
+        print(f"▶ Permintaan: niche={a.niche or '(harian)'} · kawasan={a.bandar or '(giliran)'} · had={a.had or 'semua'}")
     env = load_env()
 
     if a.cari_chat_id:

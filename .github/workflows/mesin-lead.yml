@@ -1,17 +1,23 @@
 # Mesin Lead di cloud: cari prospek Google Maps dan hantar ke Telegram tanpa laptop.
 #
-# - Jadual: setiap hari 9:00 pagi waktu Malaysia (01:00 UTC), niche dan bandar dari mesin-lead.json.
-#   GitHub kadang lewat beberapa minit, terutama pada waktu sibuk.
-# - Carian sekali: Actions > Mesin Lead > Run workflow (boleh dari app GitHub di telefon),
-#   isi niche, bandar dan jumlah. Kosongkan untuk guna tetapan harian.
-# - Token bot dan chat ID disimpan sebagai GitHub Secrets: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID.
-# - Lepas setiap run, leads/master.csv dan leads/state.json disimpan semula dalam repo ni,
-#   supaya prospek yang dah dihantar tak dihantar lagi. Repo ni MESTI private.
+# Tiga cara mencetuskan run:
+# - Chat dengan Claude (app Claude atau claude.ai/code): Claude tulis permintaan.json dan push.
+#   Push yang mengubah permintaan.json, di mana-mana branch, terus jalankan Mesin Lead.
+# - Carian sekali: Actions > Mesin Lead > Run workflow, isi niche, kawasan dan jumlah.
+# - Jadual harian: setiap hari 9:00 pagi waktu Malaysia (01:00 UTC), niche dan bandar dari
+#   mesin-lead.json. Untuk matikan, buang dua baris `schedule:` di bawah.
+#
+# Token bot dan chat ID disimpan sebagai GitHub Secrets: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID.
+# Lepas setiap run, leads/master.csv dan leads/state.json disimpan semula ke branch main,
+# supaya prospek yang dah dihantar tak dihantar lagi. Repo ni MESTI private.
 name: Mesin Lead
 
 on:
   schedule:
     - cron: "0 1 * * *"
+  push:
+    paths:
+      - "permintaan.json"
   workflow_dispatch:
     inputs:
       niche:
@@ -43,6 +49,15 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ambil permintaan dari Claude
+        if: github.event_name == 'push'
+        run: cp permintaan.json "$RUNNER_TEMP/permintaan.json"
+
+      - name: Guna senarai prospek terkini dari main
+        run: git checkout -q -B main origin/main
 
       - uses: actions/setup-python@v5
         with:
@@ -65,6 +80,7 @@ jobs:
           IN_HAD: ${{ inputs.had }}
         run: |
           args=()
+          if [ -f "$RUNNER_TEMP/permintaan.json" ]; then args+=(--permintaan "$RUNNER_TEMP/permintaan.json"); fi
           if [ -n "$IN_NICHE" ]; then args+=(--niche "$IN_NICHE"); fi
           if [ -n "$IN_BANDAR" ]; then args+=(--bandar "$IN_BANDAR"); fi
           if [ -n "$IN_HAD" ]; then args+=(--had "$IN_HAD"); fi
@@ -78,4 +94,4 @@ jobs:
           for f in leads/master.csv leads/state.json; do if [ -f "$f" ]; then git add -f "$f"; fi; done
           if git diff --cached --quiet; then echo "Tiada perubahan"; exit 0; fi
           git commit -m "Mesin Lead: kemas kini prospek $(date -u +%F)"
-          git push
+          git push origin HEAD:main
